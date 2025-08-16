@@ -9,9 +9,10 @@ intents.message_content = True
 
 bot = commands.Bot(command_prefix="m.", intents=intents)
 
-# ---------------- Stock Save/Load ----------------
+# Stock save/load file
 STOCK_FILE = "stock.json"
 
+# Load stock from JSON file
 def load_stock():
     try:
         with open(STOCK_FILE, "r") as f:
@@ -19,17 +20,23 @@ def load_stock():
     except FileNotFoundError:
         return {}
 
+# Save stock to JSON file
 def save_stock():
     with open(STOCK_FILE, "w") as f:
         json.dump(stock, f, indent=4)
 
+# In-memory stock
 stock = load_stock()
+
+# Role name allowed to manage stock
+ADMIN_ROLE = "Admin"
 
 # ---------------- Commands ----------------
 
 @bot.command()
+@commands.has_role(ADMIN_ROLE)
 async def addstock(ctx, item: str, *codes):
-    """Add one or more codes to stock for an item."""
+    """Add one or more codes to stock for an item (Admins only)."""
     if not codes:
         await ctx.send("❌ You must provide at least one code to add.")
         return
@@ -40,8 +47,9 @@ async def addstock(ctx, item: str, *codes):
     save_stock()
     await ctx.send(f"✅ Added **{len(codes)}** code(s) to stock for **{item}**. Total: {len(stock[item])}")
 
+
 @bot.command()
-@commands.cooldown(1, 21600, commands.BucketType.user)  # 6-hour cooldown
+@commands.cooldown(1, 21600, commands.BucketType.user)  # 6 hours cooldown
 async def gen(ctx, item: str):
     """Generate a code from stock and DM it to the user."""
     item = item.lower()
@@ -83,11 +91,6 @@ async def gen(ctx, item: str):
     except discord.Forbidden:
         await ctx.send("I couldn't send you a DM. Please check your privacy settings.")
 
-@gen.error
-async def gen_error(ctx, error):
-    if isinstance(error, commands.CommandOnCooldown):
-        await ctx.send(f"⏳ You can use this command again in `{int(error.retry_after // 3600)}h "
-                       f"{int((error.retry_after % 3600) // 60)}m`.")
 
 @bot.command(name="stock")
 async def stock_command(ctx):
@@ -120,9 +123,11 @@ async def stock_command(ctx):
     )
     await ctx.send(embed=embed)
 
+
 @bot.command()
+@commands.has_role(ADMIN_ROLE)
 async def delstock(ctx, item: str):
-    """Delete a stock category."""
+    """Delete a stock category (Admins only)."""
     item = item.lower()
     if item not in stock:
         await ctx.send(f"❌ No stock found for **{item}**.")
@@ -132,7 +137,7 @@ async def delstock(ctx, item: str):
     save_stock()
     await ctx.send(f"🗑️ Deleted stock category **{item}**.")
 
-# Custom help command
+
 @bot.command(name="helpme")
 async def help_command(ctx):
     embed = discord.Embed(
@@ -140,12 +145,13 @@ async def help_command(ctx):
         description="Here are all the available commands:",
         color=discord.Color.gold()
     )
-    embed.add_field(name="➕ Add Stock", value="`m.addstock <item> <code1> <code2> ...`", inline=False)
+    embed.add_field(name="➕ Add Stock", value="`m.addstock <item> <code1> <code2> ...` (Admin only)", inline=False)
     embed.add_field(name="🎁 Generate Code", value="`m.gen <item>` (6h cooldown per user)", inline=False)
     embed.add_field(name="📦 Check Stock", value="`m.stock`", inline=False)
-    embed.add_field(name="🗑️ Delete Stock", value="`m.delstock <item>`", inline=False)
+    embed.add_field(name="🗑️ Delete Stock", value="`m.delstock <item>` (Admin only)", inline=False)
     embed.set_footer(text="Made with ❤️ | Only trusted roles can generate codes.")
     await ctx.send(embed=embed)
+
 
 # ----------------- Run Bot -----------------
 TOKEN = os.getenv("BOT_TOKEN")
